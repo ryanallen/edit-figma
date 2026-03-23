@@ -111,11 +111,11 @@ function stopDaemon() {
  * Restart the daemon
  */
 async function restartDaemon() {
-  console.log('🦞 Restarting daemon...'));
+  console.log('🦞 Restarting daemon...');
   stopDaemon();
   await new Promise(r => setTimeout(r, 1000));
   await startDaemon();
-  console.log('✅ Daemon restarted'));
+  console.log('✅ Daemon restarted');
 }
 
 /**
