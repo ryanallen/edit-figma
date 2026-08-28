@@ -534,6 +534,113 @@ figjamCmd
     }
   });
 
+// ---- import command (web → Figma) ----
+program
+  .command('import <url>')
+  .description('Import a rendered web page/element into Figma as a frame or component')
+  .option('-s, --selector <css>', 'CSS selector of the element to import')
+  .option('-n, --name <name>', 'Name for the created frame/component', 'Imported')
+  .option('-c, --component', 'Convert the result into a Figma component')
+  .option('-x, --x <n>', 'Page X position', '0')
+  .option('-y, --y <n>', 'Page Y position', '0')
+  .option('--font <family>', 'Target Figma font family', 'Inter')
+  .option('--width <px>', 'Chrome viewport width (drives responsive layout)', '1440')
+  .option('--batch <n>', 'Images loaded per eval call', '4')
+  .option('--background <color>', 'Fill for a transparent root (CSS rgb()/none)', 'rgb(255,255,255)')
+  .option('--page <name>', 'Target Figma page (created if missing)')
+  .option('--replace', 'Clear the target page before building')
+  .action(async (url, options) => {
+    try {
+      await ensureDaemon();
+      const status = await client.checkDaemon();
+      if (!status.plugin) {
+        console.error('⚠️  Plugin not connected. Start the ClawDaddy plugin in Figma.');
+        process.exit(1);
+      }
+      const { importWeb } = await import('../modules/webimport.js');
+      const result = await importWeb({
+        run: (code) => client.eval(code),
+        url,
+        selector: options.selector || null,
+        name: options.name,
+        asComponent: !!options.component,
+        x: parseFloat(options.x) || 0,
+        y: parseFloat(options.y) || 0,
+        font: options.font,
+        width: parseInt(options.width, 10) || 1440,
+        batch: parseInt(options.batch, 10) || 4,
+        background: options.background === 'none' ? null : options.background,
+        page: options.page || null,
+        replace: !!options.replace,
+        onProgress: (m) => console.error('  … ' + m)
+      });
+      console.log(JSON.stringify(result, null, 2));
+    } catch (error) {
+      console.error(`⚠️  Import error: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+// ---- list-pages command ----
+program
+  .command('list-pages')
+  .description('List Figma pages and their top-level children (JSON)')
+  .action(async () => {
+    try {
+      await ensureDaemon();
+      const { listPages } = await import('../modules/webexport.js');
+      const pages = await listPages({ run: (code) => client.eval(code) });
+      console.log(JSON.stringify(pages, null, 2));
+    } catch (error) {
+      console.error(`⚠️  ${error.message}`);
+      process.exit(1);
+    }
+  });
+
+// ---- export-tree command (Figma node → tree JSON + PNG assets) ----
+program
+  .command('export-tree')
+  .description('Export a Figma node (or a page\'s children) to a JSON tree + PNG assets')
+  .option('-n, --node <id>', 'Node id to export')
+  .option('-p, --page <name>', 'Export every top-level child of this page')
+  .requiredOption('-o, --out <file>', 'Output JSON file')
+  .option('--assets <dir>', 'Directory for exported PNG assets', '')
+  .option('--scale <n>', 'PNG export scale for image/vector leaves', '2')
+  .action(async (options) => {
+    try {
+      await ensureDaemon();
+      const status = await client.checkDaemon();
+      if (!status.plugin) { console.error('⚠️  Plugin not connected.'); process.exit(1); }
+      const { exportNodeTree, listPages } = await import('../modules/webexport.js');
+      const { writeFileSync, mkdirSync } = await import('fs');
+      const { dirname } = await import('path');
+      const run = (code) => client.eval(code);
+      const assetsDir = options.assets || null;
+      const scale = parseFloat(options.scale) || 2;
+
+      let nodeIds = [];
+      if (options.node) nodeIds = [options.node];
+      else if (options.page) {
+        const pages = await listPages({ run });
+        const pg = pages.find((p) => p.name === options.page);
+        if (!pg) { console.error(`⚠️  Page not found: ${options.page}`); process.exit(1); }
+        nodeIds = pg.children.map((c) => c.id);
+      } else { console.error('⚠️  Pass --node <id> or --page <name>'); process.exit(1); }
+
+      const roots = [];
+      for (const id of nodeIds) {
+        const { tree, assets } = await exportNodeTree({ run, nodeId: id, assetsDir, scale, onProgress: (m) => console.error('  … ' + m) });
+        roots.push({ tree, assets });
+      }
+      mkdirSync(dirname(options.out), { recursive: true });
+      writeFileSync(options.out, JSON.stringify(roots.length === 1 ? roots[0] : roots, null, 2));
+      console.log(JSON.stringify({ out: options.out, roots: roots.length }, null, 2));
+    } catch (error) {
+      console.error(`⚠️  Export error: ${error.message}`);
+      process.exit(1);
+    }
+  });
+
 // ============ RUN CLI ============
 
 program.parse();

@@ -202,7 +202,7 @@ export class ClawDaddyClient {
 
     // Build export code
     const exportCode = `
-      const node = ${nodeId ? `figma.getNodeById('${nodeId}')` : 'figma.currentPage.selection[0]'};
+      const node = ${nodeId ? `await figma.getNodeByIdAsync('${nodeId}')` : 'figma.currentPage.selection[0]'};
       if (!node) {
         throw new Error('No selection. Select a node or provide --node <id>');
       }
@@ -214,8 +214,11 @@ export class ClawDaddyClient {
 
       const bytes = await node.exportAsync(settings);
 
-      // Convert Uint8Array to base64 for JSON transport
-      const base64 = btoa(String.fromCharCode(...bytes));
+      // Convert Uint8Array to base64 for JSON transport. Chunked because
+      // String.fromCharCode caps at ~65534 args, which large exports exceed.
+      let bin = ''; const CH = 32768;
+      for (let i = 0; i < bytes.length; i += CH) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CH));
+      const base64 = btoa(bin);
 
       return {
         type: 'export',

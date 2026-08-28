@@ -170,6 +170,36 @@ npx clawdaddy figjam sticky "Meeting notes"
 npx clawdaddy figjam organize
 ```
 
+## Web Import (page/component → Figma)
+
+Turn a rendered web page — or one element inside it, like a single Storybook story — into native Figma nodes. ClawDaddy drives a headless Chrome to capture the real geometry and computed styles, then rebuilds it over the eval bridge in short, timeout-safe steps. Images load by URL inside the plugin, so nothing needs to be transported as bytes.
+
+```bash
+# Import a Storybook story as a Figma component
+npx clawdaddy import "http://localhost:6006/iframe.html?viewMode=story&id=patterns-button--default" \
+  --name "Button" --component
+
+# Import just one element from any page, placed on the canvas
+npx clawdaddy import "https://example.com" --selector ".pricing-card" -x 0 -y 0
+```
+
+Options: `--selector <css>` (target element; omit to auto-pick the story root), `--name`, `--component` (convert to a Figma component), `-x/-y` (page position), `--font <family>` (Figma font to render text in, default Inter — web fonts Figma lacks are substituted), `--width <px>` (Chrome viewport, drives responsive layout), `--batch <n>` (images per eval call), `--page <name>` (build onto a named Figma page, created if missing), `--replace` (clear that page's contents first — use on the first import to a page so re-syncs stay idempotent), `--background <css rgb()|none>` (fill for a transparent root; default white).
+
+Requires a Chrome/Chromium/Edge binary; set `CLAWDADDY_CHROME` to override the path. Same capability is exposed to MCP clients as the `figma_import_url` tool.
+
+### Pages & reverse export (Figma → code)
+
+```bash
+# List pages and their top-level children (JSON)
+npx clawdaddy list-pages
+
+# Export a Figma node (or a whole page's children) to a JSON tree + PNG assets
+npx clawdaddy export-tree --node "12:345" --out out.json --assets ./assets
+npx clawdaddy export-tree --page "Button" --out button.json --assets ./assets
+```
+
+`export-tree` is the reverse of `import`: it walks a node into a JSON tree of geometry + paint/stroke/effect/text properties, exporting image/vector leaves as PNGs into `--assets`. Feed the tree to a codegen step to regenerate markup. Exposed to MCP as `figma_list_pages` and `figma_export_tree`.
+
 ## Troubleshooting
 
 - **"Plugin not connected"** → Start ClawDaddy plugin in Figma (Plugins → Development → ClawDaddy)

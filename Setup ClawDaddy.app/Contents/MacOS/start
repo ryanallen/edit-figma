@@ -1,0 +1,6 @@
+#!/bin/bash
+# Launcher stub for "Setup ClawDaddy.app". Resolves the repo (three levels up)
+# and runs the setup script in Terminal so the user sees progress. Using
+# `open -a Terminal` avoids needing macOS Automation permission.
+REPO="$(cd "$(dirname "$0")/../../.." && pwd)"
+open -a Terminal "$REPO/scripts/setup.sh"

@@ -4,10 +4,12 @@
   "description": "🦞 ClawDaddy - Claude Code to Figma bridge. Plugin-based, safe and secure!",
   "type": "module",
   "bin": {
-    "clawdaddy": "src/core/index.js"
+    "clawdaddy": "src/core/index.js",
+    "clawdaddy-mcp": "src/mcp/server.js"
   },
   "scripts": {
     "start": "node src/core/index.js connect",
+    "mcp": "node src/mcp/server.js",
     "test": "echo \"Tests coming soon\" && exit 0"
   },
   "keywords": [
@@ -24,7 +26,9 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "commander": "^12.1.0",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "zod": "^3.23.8"
   }
 }
